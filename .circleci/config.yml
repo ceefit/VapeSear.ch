@@ -1,0 +1,72 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/node:11.10.1
+    working_directory: ~/vapesear.ch
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: Install NPM Packages
+          command: |
+            yarn install
+      - run:
+          name: Make Production Build
+          command: |
+            yarn build
+      - save_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+          paths:
+            - ./node_modules
+
+  test:
+    docker:
+      - image: circleci/node:11.10.1
+    working_directory: ~/vapesear.ch
+    steps:
+      - checkout
+      - restore_cache:
+            key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: Unit Tests
+          command: |
+            yarn test
+
+  deploy-prod:
+    docker:
+      - image: circleci/node:11.10.1
+    working_directory: ~/vapesear.ch
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: Make Production Build
+          command: |
+            yarn build
+      - run:
+          name: Install utilities
+          command: |
+            sudo apt-get -y -qq update
+            sudo apt-get install rsync python-pip python-dev jq
+            sudo pip install awscli
+      - run:
+          name: Deploy to S3
+          command: |
+            export S3BUCKET=s3://vapesear.ch
+            export INDEX=index.html
+            export AWS_DEFAULT_REGION=us-east-1
+            aws s3 sync ~/vapesear.ch/build/ $S3BUCKET --delete --storage-class ONEZONE_IA
+            aws s3 cp $S3BUCKET/$INDEX $S3BUCKET/$INDEX --metadata-directive REPLACE --cache-control no-cache,no-store,must-revalidate --storage-class ONEZONE_IA
+
+workflows:
+  version: 2
+  build_test_lint_and_deploy:
+    jobs:
+      - build
+      - deploy-prod:
+          requires:
+            - build

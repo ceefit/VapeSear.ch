@@ -61,6 +61,11 @@ jobs:
             export AWS_DEFAULT_REGION=us-east-1
             aws s3 sync ~/vapesear.ch/build/ $S3BUCKET --delete --storage-class ONEZONE_IA
             aws s3 cp $S3BUCKET/$INDEX $S3BUCKET/$INDEX --metadata-directive REPLACE --cache-control no-cache,no-store,must-revalidate --storage-class ONEZONE_IA
+      - run:
+          name: Invalidate CloudFront Distribution
+          command: |
+            aws configure set preview.cloudfront true
+            aws cloudfront create-invalidation --distribution-id E8IUCE8BJ4E53 --paths "/*"
 
 workflows:
   version: 2
